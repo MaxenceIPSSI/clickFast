@@ -50,3 +50,26 @@ h1 {
   font-size: 3rem;
   font-weight: bold;
 }
+
+#chrono {
+  margin: 1rem 0 2rem;
+  text-align: center;
+  font-weight: bold;
+}
+
+#button-clicker:disabled {
+  background-color: lightgray;
+  cursor: not-allowed;
+  &:hover {
+    scale: 1;
+  }
+}
+
+#button-rejouer {
+  margin-top: 1.5rem;
+  background: none;
+  border: none;
+  font-size: 1rem;
+  text-decoration: underline;
+  cursor: pointer;
+}
