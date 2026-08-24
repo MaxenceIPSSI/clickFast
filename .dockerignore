@@ -1,0 +1,9 @@
+# Le contexte de build ne doit contenir que ce qui sert a afficher le jeu.
+# Tout ce qui est liste ici n'est jamais envoye au daemon Docker, et ne peut
+# donc pas se retrouver dans une couche de l'image.
+.git
+.gitignore
+.dockerignore
+Dockerfile
+README.md
+.DS_Store
