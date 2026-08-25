@@ -14,7 +14,7 @@ const CODES_BASE_INJOIGNABLE = new Set([
 ]);
 
 const pool = new Pool({
-  host: "172.17.0.3",
+  host: "clickfast-db",
   port: 5432,
   user: "clickfast_user",
   password: "clickfast_pass",
