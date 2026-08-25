@@ -1,7 +1,8 @@
 const app = require("./app");
+const config = require("./config");
 const { initialiserSchema } = require("./db");
 
-const PORT = 3000;
+const PORT = config.portApi;
 const DELAI_RETENTATIVE_MS = 2000;
 
 app.listen(PORT, () => {

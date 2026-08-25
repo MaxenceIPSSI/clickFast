@@ -1,5 +1,7 @@
 const { Pool } = require("pg");
 
+const config = require("./config");
+
 const CODES_BASE_INJOIGNABLE = new Set([
   "ECONNREFUSED",
   "ECONNRESET",
@@ -14,11 +16,7 @@ const CODES_BASE_INJOIGNABLE = new Set([
 ]);
 
 const pool = new Pool({
-  host: "clickfast-db",
-  port: 5432,
-  user: "clickfast_user",
-  password: "clickfast_pass",
-  database: "clickfast_db",
+  ...config.base,
   connectionTimeoutMillis: 3000,
 });
 
