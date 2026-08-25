@@ -1,4 +1,4 @@
-FROM nginx:1.30.4-alpine
+FROM nginx:1.30.4-alpine-slim
 
 RUN chown -R nginx:nginx /var/cache/nginx \
  && sed -i 's|^pid .*|pid /tmp/nginx.pid;|' /etc/nginx/nginx.conf \
