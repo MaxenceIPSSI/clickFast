@@ -1,12 +1,18 @@
-// ClickFast : on compte les clics, mais seulement pendant les 5 secondes
-// de la partie. Le chrono démarre au tout premier clic.
+// Une fois que le HTML ressemble à ce que vous voulez : 
+// 1. Faire une variable count, qui stockera le nombre de clics
+// 2. Faire un eventListener sur le bouton
 
 const DUREE_PARTIE_MS = 5000;
+const API_URL = `http://${window.location.hostname}:3000`;
 
 const elementScore = document.getElementById("score");
 const elementChrono = document.getElementById("chrono");
 const boutonClic = document.getElementById("button-clicker");
 const boutonRejouer = document.getElementById("button-rejouer");
+const champPseudo = document.getElementById("username");
+const sectionClassement = document.getElementById("classement");
+const listeClassement = document.getElementById("classement-liste");
+const messageEnvoi = document.getElementById("message-envoi");
 
 let score = 0;
 let partieEnCours = false;
@@ -17,14 +23,16 @@ function afficherChrono(msRestants) {
   elementChrono.textContent = `${(msRestants / 1000).toFixed(1)} s`;
 }
 
-// État "prête à jouer" : score à zéro, chrono affiché mais pas encore lancé.
 function reinitialiser() {
   score = 0;
   partieEnCours = false;
   elementScore.textContent = score;
   afficherChrono(DUREE_PARTIE_MS);
   boutonClic.disabled = false;
+  boutonClic.hidden = false;
   boutonRejouer.hidden = true;
+  sectionClassement.hidden = true;
+  messageEnvoi.textContent = "";
 }
 
 function demarrerPartie() {
@@ -42,23 +50,90 @@ function mettreAJourChrono() {
 }
 
 function terminerPartie() {
+  if (!partieEnCours) {
+    return;
+  }
+
   partieEnCours = false;
   clearInterval(intervalChrono);
   intervalChrono = null;
-  // Le bouton est désactivé : passé le délai, plus aucun clic ne compte.
   boutonClic.disabled = true;
+  boutonClic.hidden = true;
   boutonRejouer.hidden = false;
+  sectionClassement.hidden = false;
   elementChrono.textContent = `Terminé : ${score} clic${score > 1 ? "s" : ""} en 5 secondes`;
+
+  enregistrerPuisAfficher();
+}
+
+async function enregistrerPuisAfficher() {
+  await envoyerScore();
+  await chargerClassement();
+}
+
+async function envoyerScore() {
+  const username = champPseudo.value.trim();
+
+  if (username.length === 0) {
+    messageEnvoi.textContent = "Entre un pseudo avant de jouer pour apparaître au classement.";
+    return;
+  }
+
+  try {
+    const reponse = await fetch(`${API_URL}/api/scores`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, score }),
+    });
+
+    if (!reponse.ok) {
+      const corps = await reponse.json().catch(() => ({}));
+      messageEnvoi.textContent = `Score non enregistré : ${corps.error ?? `erreur ${reponse.status}`}`;
+      return;
+    }
+
+    messageEnvoi.textContent = `Score enregistré pour ${username}.`;
+  } catch {
+    messageEnvoi.textContent = "Score non enregistré : l'API est injoignable.";
+  }
+}
+
+async function chargerClassement() {
+  try {
+    const reponse = await fetch(`${API_URL}/api/scores`);
+
+    if (!reponse.ok) {
+      throw new Error(`erreur ${reponse.status}`);
+    }
+
+    const scores = await reponse.json();
+    listeClassement.replaceChildren();
+
+    if (scores.length === 0) {
+      const vide = document.createElement("li");
+      vide.textContent = "Aucun score enregistré pour l'instant.";
+      listeClassement.appendChild(vide);
+      return;
+    }
+
+    for (const ligne of scores) {
+      const element = document.createElement("li");
+      element.textContent = `${ligne.username} — ${ligne.score}`;
+      listeClassement.appendChild(element);
+    }
+  } catch {
+    listeClassement.replaceChildren();
+    const erreur = document.createElement("li");
+    erreur.textContent = "Classement indisponible, l'API ne répond pas.";
+    listeClassement.appendChild(erreur);
+  }
 }
 
 boutonClic.addEventListener("click", () => {
-  // Le chrono ne tourne pas encore : ce clic-ci lance la partie, et compte.
   if (!partieEnCours) {
     demarrerPartie();
   }
 
-  // Le chrono ne se réveille que toutes les 100 ms : on revérifie l'heure
-  // ici pour qu'un clic arrivé après la fin ne soit jamais comptabilisé.
   if (Date.now() >= finDePartie) {
     terminerPartie();
     return;

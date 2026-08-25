@@ -15,6 +15,16 @@
         <h1 class="flex-center">ClickFast</h1>
         <p class="catchphrase">Sois le plus rapide des clickers du game ⚡</p>
 
+        <div class="flex-center">
+          <input
+            id="username"
+            type="text"
+            maxlength="30"
+            autocomplete="off"
+            placeholder="Ton pseudo"
+          />
+        </div>
+
         <p id="chrono">5.0 s</p>
 
         <div class="flex-center" id="zone-jeu">
@@ -22,6 +32,12 @@
             <span id="score" class="number">0</span>
             <span class="label">Clique !</span>
           </button>
+
+          <section id="classement" hidden>
+            <h2>Classement</h2>
+            <ol id="classement-liste"></ol>
+            <p id="message-envoi"></p>
+          </section>
         </div>
 
         <div class="flex-center">
