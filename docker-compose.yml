@@ -1,0 +1,59 @@
+services:
+  db:
+    image: postgres:18.6-alpine3.24
+    environment:
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql
+    networks:
+      - clickfast
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+      start_period: 5s
+    restart: unless-stopped
+
+  scores-api:
+    build: ./scores-api
+    env_file:
+      - .env
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "${API_PORT}:3000"
+    networks:
+      - clickfast
+    restart: unless-stopped
+
+  web:
+    build: .
+    depends_on:
+      - scores-api
+    ports:
+      - "${WEB_PORT}:8080"
+    networks:
+      - clickfast
+    restart: unless-stopped
+
+  adminer:
+    image: adminer:5.5.1
+    environment:
+      ADMINER_DEFAULT_SERVER: ${DB_HOST}
+    ports:
+      - "${ADMINER_PORT}:8080"
+    networks:
+      - clickfast
+    restart: unless-stopped
+
+networks:
+  clickfast:
+    name: clickfast-network
+
+volumes:
+  pgdata:
+    name: clickfast-pgdata
