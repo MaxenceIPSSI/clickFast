@@ -8,4 +8,9 @@ docker-compose*.yml
 README.md
 .DS_Store
 node_modules
+package.json
+package-lock.json
+*.test.js
+.github
 scores-api
+stats_api

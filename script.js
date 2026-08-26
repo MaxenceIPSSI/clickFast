@@ -3,21 +3,25 @@
 // 2. Faire un eventListener sur le bouton
 
 const DUREE_PARTIE_MS = 5000;
-const API_URL = `http://${window.location.hostname}:3000`;
 
-const elementScore = document.getElementById("score");
-const elementChrono = document.getElementById("chrono");
-const boutonClic = document.getElementById("button-clicker");
-const boutonRejouer = document.getElementById("button-rejouer");
-const champPseudo = document.getElementById("username");
-const sectionClassement = document.getElementById("classement");
-const listeClassement = document.getElementById("classement-liste");
-const messageEnvoi = document.getElementById("message-envoi");
+let elementScore;
+let elementChrono;
+let boutonClic;
+let boutonRejouer;
+let champPseudo;
+let sectionClassement;
+let listeClassement;
+let messageEnvoi;
 
 let score = 0;
 let partieEnCours = false;
+let partieTerminee = false;
 let finDePartie = 0;
 let intervalChrono = null;
+
+function urlApi() {
+  return `http://${window.location.hostname}:3000`;
+}
 
 function afficherChrono(msRestants) {
   elementChrono.textContent = `${(msRestants / 1000).toFixed(1)} s`;
@@ -26,6 +30,9 @@ function afficherChrono(msRestants) {
 function reinitialiser() {
   score = 0;
   partieEnCours = false;
+  partieTerminee = false;
+  clearInterval(intervalChrono);
+  intervalChrono = null;
   elementScore.textContent = score;
   afficherChrono(DUREE_PARTIE_MS);
   boutonClic.disabled = false;
@@ -55,6 +62,7 @@ function terminerPartie() {
   }
 
   partieEnCours = false;
+  partieTerminee = true;
   clearInterval(intervalChrono);
   intervalChrono = null;
   boutonClic.disabled = true;
@@ -80,7 +88,7 @@ async function envoyerScore() {
   }
 
   try {
-    const reponse = await fetch(`${API_URL}/api/scores`, {
+    const reponse = await fetch(`${urlApi()}/api/scores`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ username, score }),
@@ -100,7 +108,7 @@ async function envoyerScore() {
 
 async function chargerClassement() {
   try {
-    const reponse = await fetch(`${API_URL}/api/scores`);
+    const reponse = await fetch(`${urlApi()}/api/scores`);
 
     if (!reponse.ok) {
       throw new Error(`erreur ${reponse.status}`);
@@ -129,7 +137,11 @@ async function chargerClassement() {
   }
 }
 
-boutonClic.addEventListener("click", () => {
+function auClic() {
+  if (partieTerminee) {
+    return;
+  }
+
   if (!partieEnCours) {
     demarrerPartie();
   }
@@ -141,8 +153,26 @@ boutonClic.addEventListener("click", () => {
 
   score++;
   elementScore.textContent = score;
-});
+}
 
-boutonRejouer.addEventListener("click", reinitialiser);
+function initialiserJeu() {
+  elementScore = document.getElementById("score");
+  elementChrono = document.getElementById("chrono");
+  boutonClic = document.getElementById("button-clicker");
+  boutonRejouer = document.getElementById("button-rejouer");
+  champPseudo = document.getElementById("username");
+  sectionClassement = document.getElementById("classement");
+  listeClassement = document.getElementById("classement-liste");
+  messageEnvoi = document.getElementById("message-envoi");
 
-reinitialiser();
+  boutonClic.addEventListener("click", auClic);
+  boutonRejouer.addEventListener("click", reinitialiser);
+
+  reinitialiser();
+}
+
+if (typeof module !== "undefined" && module.exports) {
+  module.exports = { initialiserJeu, DUREE_PARTIE_MS };
+} else {
+  initialiserJeu();
+}
