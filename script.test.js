@@ -1,4 +1,4 @@
-const { initialiserJeu, DUREE_PARTIE_MS } = require("./script.js");
+const { initialiserJeu, DUREE_PARTIE_MS, API_NATIONALE } = require("./script.js");
 
 const FAUX_DOM = `
   <input id="username" type="text" />
@@ -10,7 +10,9 @@ const FAUX_DOM = `
     </button>
     <section id="classement" hidden>
       <ol id="classement-liste"></ol>
+      <ol id="classement-national"></ol>
       <p id="message-envoi"></p>
+      <p id="message-national"></p>
     </section>
   </div>
   <button id="button-rejouer" type="button" hidden>Rejouer</button>
@@ -151,5 +153,99 @@ describe("ClickFast, l'envoi du score", () => {
     expect(envoi).toBeDefined();
     expect(envoi[0]).toContain("/api/scores");
     expect(JSON.parse(envoi[1].body)).toEqual({ username: "Maxence", score: 6 });
+  });
+});
+
+describe("ClickFast, le classement national partage", () => {
+  const appelsVers = (url, methode) =>
+    global.fetch.mock.calls.filter(
+      (appel) => appel[0].startsWith(url) && (appel[1]?.method ?? "GET") === methode
+    );
+
+  function bouchonner(scoresNationaux) {
+    global.fetch = jest.fn((url, options) => {
+      if (url.startsWith(API_NATIONALE) && (options?.method ?? "GET") === "GET") {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve(scoresNationaux) });
+      }
+      return Promise.resolve({ ok: true, json: () => Promise.resolve([]) });
+    });
+  }
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+    document.body.innerHTML = FAUX_DOM;
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+    jest.restoreAllMocks();
+  });
+
+  test("un premier score part sur le classement national", async () => {
+    bouchonner([]);
+    initialiserJeu();
+    document.getElementById("username").value = "Maxence";
+
+    cliquer(12);
+    jest.advanceTimersByTime(DUREE_PARTIE_MS);
+    await jest.runAllTimersAsync();
+
+    const envois = appelsVers(API_NATIONALE, "POST");
+    expect(envois).toHaveLength(1);
+    const corps = JSON.parse(envois[0][1].body);
+    expect(corps.username).toBe("Maxence");
+    expect(corps.score).toBe(12);
+    expect(corps.avatar).toBeDefined();
+    expect(corps.website_url).toBeDefined();
+  });
+
+  test("un meilleur score remplace l'ancien : suppression puis envoi", async () => {
+    bouchonner([
+      { id: "1", username: "Maxence", score: 8 },
+      { id: "2", username: "Quelqu-un-d-autre", score: 99 },
+    ]);
+    initialiserJeu();
+    document.getElementById("username").value = "Maxence";
+
+    cliquer(20);
+    jest.advanceTimersByTime(DUREE_PARTIE_MS);
+    await jest.runAllTimersAsync();
+
+    const suppressions = appelsVers(API_NATIONALE, "DELETE");
+    expect(suppressions).toHaveLength(1);
+    expect(suppressions[0][0]).toBe(`${API_NATIONALE}/1`);
+    expect(appelsVers(API_NATIONALE, "POST")).toHaveLength(1);
+  });
+
+  test("un score moins bon ne touche a rien", async () => {
+    bouchonner([{ id: "1", username: "Maxence", score: 40 }]);
+    initialiserJeu();
+    document.getElementById("username").value = "Maxence";
+
+    cliquer(3);
+    jest.advanceTimersByTime(DUREE_PARTIE_MS);
+    await jest.runAllTimersAsync();
+
+    expect(appelsVers(API_NATIONALE, "DELETE")).toHaveLength(0);
+    expect(appelsVers(API_NATIONALE, "POST")).toHaveLength(0);
+    expect(document.getElementById("message-national").textContent).toContain("40");
+  });
+
+  test("le classement national est trie et limite aux dix meilleurs", async () => {
+    const beaucoup = Array.from({ length: 15 }, (_, i) => ({
+      id: String(i),
+      username: `Joueur${i}`,
+      score: i,
+    }));
+    bouchonner(beaucoup);
+    initialiserJeu();
+
+    cliquer(1);
+    jest.advanceTimersByTime(DUREE_PARTIE_MS);
+    await jest.runAllTimersAsync();
+
+    const lignes = document.querySelectorAll("#classement-national li");
+    expect(lignes).toHaveLength(10);
+    expect(lignes[0].textContent).toContain("Joueur14 — 14");
   });
 });

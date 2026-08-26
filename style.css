@@ -149,3 +149,35 @@ h1 {
   font-size: 1.1rem;
   margin: 1.5rem 0 0;
 }
+
+#colonnes-classement {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3rem;
+  justify-content: center;
+  align-items: flex-start;
+}
+
+#classement-national {
+  text-align: left;
+  margin: 0;
+  padding-left: 2rem;
+}
+
+#classement-national li {
+  margin: 0.25rem 0;
+}
+
+#classement-national img {
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 50%;
+  vertical-align: middle;
+  margin-right: 0.5rem;
+  object-fit: cover;
+}
+
+#message-national {
+  font-size: 1.1rem;
+  margin: 0.5rem 0 0;
+}

@@ -3,6 +3,9 @@
 // 2. Faire un eventListener sur le bouton
 
 const DUREE_PARTIE_MS = 5000;
+const API_NATIONALE = "https://672e1217229a881691eed80f.mockapi.io/scores";
+const AVATAR = "https://github.com/MaxenceIPSSI.png";
+const SITE = "https://maxenceipssi.github.io/clickFast/";
 
 let elementScore;
 let elementChrono;
@@ -12,6 +15,8 @@ let champPseudo;
 let sectionClassement;
 let listeClassement;
 let messageEnvoi;
+let listeNationale;
+let messageNational;
 
 let score = 0;
 let partieEnCours = false;
@@ -40,6 +45,7 @@ function reinitialiser() {
   boutonRejouer.hidden = true;
   sectionClassement.hidden = true;
   messageEnvoi.textContent = "";
+  messageNational.textContent = "";
 }
 
 function demarrerPartie() {
@@ -77,6 +83,101 @@ function terminerPartie() {
 async function enregistrerPuisAfficher() {
   await envoyerScore();
   await chargerClassement();
+  await envoyerScoreNational();
+  await chargerClassementNational();
+}
+
+async function envoyerScoreNational() {
+  const username = champPseudo.value.trim();
+
+  if (username.length === 0) {
+    return;
+  }
+
+  try {
+    const reponse = await fetch(API_NATIONALE);
+
+    if (!reponse.ok) {
+      throw new Error(`erreur ${reponse.status}`);
+    }
+
+    const scores = await reponse.json();
+    const miens = scores.filter((ligne) => ligne.username === username);
+    const meilleurActuel = miens.reduce((max, ligne) => Math.max(max, Number(ligne.score) || 0), 0);
+
+    if (miens.length > 0 && meilleurActuel >= score) {
+      messageNational.textContent = `Ton record national reste ${meilleurActuel}.`;
+      return;
+    }
+
+    for (const ligne of miens) {
+      await fetch(`${API_NATIONALE}/${ligne.id}`, { method: "DELETE" });
+    }
+
+    const envoi = await fetch(API_NATIONALE, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        createdAt: new Date().toISOString(),
+        username,
+        avatar: AVATAR,
+        score,
+        website_url: SITE,
+      }),
+    });
+
+    if (!envoi.ok) {
+      throw new Error(`erreur ${envoi.status}`);
+    }
+
+    messageNational.textContent = `Nouveau record national envoyé : ${score}.`;
+  } catch {
+    messageNational.textContent = "Classement national injoignable.";
+  }
+}
+
+async function chargerClassementNational() {
+  try {
+    const reponse = await fetch(API_NATIONALE);
+
+    if (!reponse.ok) {
+      throw new Error(`erreur ${reponse.status}`);
+    }
+
+    const scores = await reponse.json();
+    listeNationale.replaceChildren();
+
+    const meilleurs = scores
+      .slice()
+      .sort((a, b) => (Number(b.score) || 0) - (Number(a.score) || 0))
+      .slice(0, 10);
+
+    if (meilleurs.length === 0) {
+      const vide = document.createElement("li");
+      vide.textContent = "Aucun score national pour l'instant.";
+      listeNationale.appendChild(vide);
+      return;
+    }
+
+    for (const ligne of meilleurs) {
+      const element = document.createElement("li");
+
+      if (ligne.avatar) {
+        const image = document.createElement("img");
+        image.src = ligne.avatar;
+        image.alt = "";
+        element.appendChild(image);
+      }
+
+      element.appendChild(document.createTextNode(`${ligne.username} — ${ligne.score}`));
+      listeNationale.appendChild(element);
+    }
+  } catch {
+    listeNationale.replaceChildren();
+    const erreur = document.createElement("li");
+    erreur.textContent = "Classement national indisponible.";
+    listeNationale.appendChild(erreur);
+  }
 }
 
 async function envoyerScore() {
@@ -164,6 +265,8 @@ function initialiserJeu() {
   sectionClassement = document.getElementById("classement");
   listeClassement = document.getElementById("classement-liste");
   messageEnvoi = document.getElementById("message-envoi");
+  listeNationale = document.getElementById("classement-national");
+  messageNational = document.getElementById("message-national");
 
   boutonClic.addEventListener("click", auClic);
   boutonRejouer.addEventListener("click", reinitialiser);
@@ -172,7 +275,7 @@ function initialiserJeu() {
 }
 
 if (typeof module !== "undefined" && module.exports) {
-  module.exports = { initialiserJeu, DUREE_PARTIE_MS };
+  module.exports = { initialiserJeu, DUREE_PARTIE_MS, API_NATIONALE };
 } else {
   initialiserJeu();
 }
