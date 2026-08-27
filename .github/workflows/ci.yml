@@ -113,7 +113,7 @@ jobs:
         image: [clickfast, clickfast-scores-api, clickfast-stats-api]
     steps:
       - name: Scan Trivy du tag qui vient d etre publie
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: ${{ env.REGISTRY_NAMESPACE }}/${{ matrix.image }}:${{ github.sha }}
           severity: HIGH,CRITICAL
