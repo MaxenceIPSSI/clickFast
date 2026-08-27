@@ -2,7 +2,7 @@ name: Docker Image
 
 on:
   push:
-    branches: ["main", "develop", "j2"]
+    branches: ["main", "develop", "j2", "j3"]
   pull_request:
     branches: ["main"]
 

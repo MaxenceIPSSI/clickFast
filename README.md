@@ -2,7 +2,7 @@
 
 ![Docker Image](https://github.com/MaxenceIPSSI/clickFast/actions/workflows/docker-image.yml/badge.svg)
 ![GitHub Pages](https://github.com/MaxenceIPSSI/clickFast/actions/workflows/pages.yml/badge.svg)
-![Tests](https://github.com/MaxenceIPSSI/clickFast/actions/workflows/tests.yml/badge.svg)
+![CI](https://github.com/MaxenceIPSSI/clickFast/actions/workflows/ci.yml/badge.svg)
 
 Sois le plus rapide des clickers du game ⚡
 

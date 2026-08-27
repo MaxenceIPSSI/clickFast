@@ -58,7 +58,7 @@ app.use((req, res) => {
   res.status(404).json({ error: "route inconnue" });
 });
 
-app.use((erreur, req, res, next) => {
+app.use((erreur, req, res, _next) => {
   if (erreur.type === "entity.parse.failed") {
     return res.status(400).json({ error: "corps de requete JSON invalide" });
   }
