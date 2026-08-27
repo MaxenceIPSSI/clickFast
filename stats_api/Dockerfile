@@ -13,7 +13,8 @@ FROM python:3.12.14-alpine
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
-RUN apk add --no-cache libpq
+RUN apk upgrade --no-cache libcrypto3 libssl3 \
+ && apk add --no-cache libpq
 
 WORKDIR /app
 

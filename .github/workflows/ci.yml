@@ -101,3 +101,21 @@ jobs:
 
       - name: Rappeler le tag publie
         run: echo "publie ${{ env.REGISTRY_NAMESPACE }}/${{ matrix.image }}:${{ github.sha }}"
+
+  security-image:
+    name: securite de l image ${{ matrix.image }}
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        image: [clickfast, clickfast-scores-api, clickfast-stats-api]
+    steps:
+      - name: Scan Trivy du tag qui vient d etre publie
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: ${{ env.REGISTRY_NAMESPACE }}/${{ matrix.image }}:${{ github.sha }}
+          severity: HIGH,CRITICAL
+          exit-code: "1"
+          ignore-unfixed: false
+          scanners: vuln

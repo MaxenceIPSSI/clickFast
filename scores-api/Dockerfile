@@ -12,6 +12,9 @@ RUN npm prune --omit=dev \
 
 FROM node:24.19.0-alpine3.24
 
+RUN apk upgrade --no-cache libcrypto3 libssl3 \
+ && rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx
+
 WORKDIR /app
 
 ENV NODE_ENV=production
