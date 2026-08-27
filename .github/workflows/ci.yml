@@ -5,6 +5,7 @@ on:
     branches: ["main", "develop", "j2", "j3"]
   pull_request:
     branches: ["main"]
+  workflow_dispatch:
 
 env:
   REGISTRY_NAMESPACE: maxenceg18
@@ -69,7 +70,7 @@ jobs:
   build-and-push:
     name: publier ${{ matrix.image }}
     needs: test
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
