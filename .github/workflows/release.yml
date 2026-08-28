@@ -1,10 +1,8 @@
-name: CI
+name: Release
 
 on:
   push:
-    branches: ["main", "develop", "j2", "j3"]
-  pull_request:
-    branches: ["main"]
+    branches: ["main", "j3"]
   workflow_dispatch:
 
 env:
@@ -97,7 +95,7 @@ jobs:
   build-and-push:
     name: publier ${{ matrix.image }}
     needs: test
-    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/j3' || github.event_name == 'workflow_dispatch'
+    environment: production
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false

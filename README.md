@@ -1,8 +1,8 @@
 # ClickFast ⏩
 
-![Docker Image](https://github.com/MaxenceIPSSI/clickFast/actions/workflows/docker-image.yml/badge.svg)
+![Verify](https://github.com/MaxenceIPSSI/clickFast/actions/workflows/verify.yml/badge.svg?branch=j3)
 ![GitHub Pages](https://github.com/MaxenceIPSSI/clickFast/actions/workflows/pages.yml/badge.svg)
-![CI](https://github.com/MaxenceIPSSI/clickFast/actions/workflows/ci.yml/badge.svg)
+![Release](https://github.com/MaxenceIPSSI/clickFast/actions/workflows/release.yml/badge.svg?branch=j3)
 
 Sois le plus rapide des clickers du game ⚡
 

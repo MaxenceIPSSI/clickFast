@@ -1,0 +1,249 @@
+name: Verify
+
+on:
+  pull_request:
+    branches: ["main", "j3"]
+
+env:
+  REGISTRY_NAMESPACE: maxenceg18
+
+jobs:
+  lint:
+    name: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run lint
+
+  test:
+    name: tests unitaires
+    needs: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm test
+
+  security-deps:
+    name: securite des dependances
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+
+      - name: Relever le compte des alertes
+        run: |
+          npm audit --json > audit-racine.json || true
+          (cd scores-api && npm audit --json > ../audit-scores.json) || true
+          python3 - <<'FIN' > rapport-deps.json
+          import json
+          def lire(f):
+              try:
+                  return json.load(open(f)).get("metadata", {}).get("vulnerabilities", {})
+              except Exception:
+                  return {}
+          racine, scores = lire("audit-racine.json"), lire("audit-scores.json")
+          somme = lambda d: sum(d.get(k, 0) for k in ("high", "critical"))
+          print(json.dumps({
+              "racine_high_critical": somme(racine),
+              "scores_high_critical": somme(scores),
+              "racine_detail": racine,
+              "scores_detail": scores,
+          }))
+          FIN
+          cat rapport-deps.json
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rapport-deps
+          path: rapport-deps.json
+
+      - name: Dependances du jeu et de l outillage
+        run: npm audit --audit-level=high
+
+      - name: Dependances de l API de scores
+        working-directory: scores-api
+        run: npm audit --audit-level=high
+
+      - name: Recherche de secrets dans tout l historique
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  resume-securite:
+    name: resume de securite
+    needs: [security-deps]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Recuperer les rapports produits
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          path: rapports
+
+      - name: Ecrire le resume
+        env:
+          RESULTAT_DEPS: ${{ needs.security-deps.result }}
+          RESULTAT_IMAGE: skipped
+          RESULTAT_SBOM: skipped
+        run: |
+          python3 - >> "$GITHUB_STEP_SUMMARY" <<'FIN'
+          import json, os, glob
+
+          def lire(chemin):
+              try:
+                  return json.load(open(chemin))
+              except Exception:
+                  return None
+
+          def etat(nom):
+              v = os.environ.get(nom, "")
+              return {"success": "vert", "failure": "ROUGE", "skipped": "non execute",
+                      "cancelled": "annule"}.get(v, v or "inconnu")
+
+          print("## Etat de securite de cette version\n")
+          print("| Verification | Etat | Detail |")
+          print("| --- | --- | --- |")
+
+          d = lire("rapports/rapport-deps/rapport-deps.json")
+          if d is None:
+              detail = "chiffres non disponibles"
+          else:
+              detail = f"{d['racine_high_critical']} alerte(s) racine, {d['scores_high_critical']} alerte(s) scores-api"
+          print(f"| Dependances (npm audit) | {etat('RESULTAT_DEPS')} | {detail} |")
+          print(f"| Secrets (gitleaks) | {etat('RESULTAT_DEPS')} | inclus dans le meme job |")
+
+          fichiers = sorted(glob.glob("rapports/rapport-image-*/rapport-image-*.json"))
+          if not fichiers:
+              print(f"| Vulnerabilites d image (Trivy) | {etat('RESULTAT_IMAGE')} | aucun rapport produit |")
+          else:
+              for f in fichiers:
+                  r = lire(f)
+                  if r is None:
+                      print(f"| Vulnerabilites d image (Trivy) | {etat('RESULTAT_IMAGE')} | rapport illisible : {f} |")
+                  else:
+                      print(f"| Vulnerabilites d image : {r['image']} | {etat('RESULTAT_IMAGE')} | {r['critical']} CRITICAL, {r['high']} HIGH |")
+
+          sboms = sorted(glob.glob("rapports/sbom-*/sbom-*.cdx.json"))
+          if not sboms:
+              print(f"| Inventaire (SBOM) | {etat('RESULTAT_SBOM')} | aucun inventaire produit |")
+          else:
+              for f in sboms:
+                  s = lire(f)
+                  if s is None:
+                      print(f"| Inventaire (SBOM) | {etat('RESULTAT_SBOM')} | inventaire illisible : {f} |")
+                  else:
+                      composants = s.get("components") or []
+                      libs = sum(1 for c in composants if c.get("type") == "library")
+                      nom = f.split("/")[-1].replace("sbom-", "").replace(".cdx.json", "")
+                      print(f"| Inventaire : {nom} | {etat('RESULTAT_SBOM')} | {len(composants)} composants dont {libs} librairies |")
+
+          rouge = any(os.environ.get(k) == "failure" for k in ("RESULTAT_DEPS", "RESULTAT_IMAGE", "RESULTAT_SBOM"))
+          print()
+          print("**Publication en confiance : non, une verification est rouge.**" if rouge
+                else "**Publication en confiance : oui, aucune verification en echec.**")
+          FIN
+
+      - name: Refuser si une verification de securite est rouge
+        run: |
+          test "${{ needs.security-deps.result }}" != "failure"
+
+  build:
+    name: build ${{ matrix.image }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - image: clickfast
+            context: .
+          - image: clickfast-scores-api
+            context: ./scores-api
+          - image: clickfast-stats-api
+            context: ./stats_api
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build ${{ matrix.image }}
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          push: false
+          load: true
+          tags: ${{ matrix.image }}:${{ github.sha }}
+          cache-from: type=gha,scope=${{ matrix.image }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.image }}
+
+      - name: Le process ne tourne pas en root
+        run: |
+          utilisateur=$(docker run --rm ${{ matrix.image }}:${{ github.sha }} whoami)
+          echo "utilisateur du conteneur : $utilisateur"
+          test "$utilisateur" != "root"
+
+      - name: Taille de l'image
+        run: docker images ${{ matrix.image }}:${{ github.sha }} --format '{{.Size}}'
+
+  smoke:
+    name: le jeu repond vraiment
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build de l'image du jeu
+        run: docker build -t clickfast:ci .
+
+      - name: Le conteneur sert bien le jeu
+        run: |
+          docker run -d --name clickfast-ci -p 8080:8080 clickfast:ci
+          for i in $(seq 1 30); do
+            curl -fsS -o /dev/null http://127.0.0.1:8080 && break
+            sleep 1
+          done
+          curl -fsS http://127.0.0.1:8080 | grep -q "ClickFast"
+          curl -fsS -o /dev/null http://127.0.0.1:8080/script.js
+          curl -fsS -o /dev/null http://127.0.0.1:8080/style.css
+
+      - name: Rien d'autre que le site dans l'image
+        run: |
+          contenu=$(docker run --rm clickfast:ci ls /usr/share/nginx/html | sort | tr '\n' ' ')
+          echo "contenu servi : $contenu"
+          test "$contenu" = "index.html script.js style.css "
+
+  compose:
+    name: les fichiers compose sont valides
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Un .env reconstruit depuis le template suffit
+        run: cp .env.example .env
+
+      - name: Validation des deux stacks
+        run: |
+          docker compose -f docker-compose.yml config --quiet
+          docker compose -f docker-compose.prod.yml config --quiet
